@@ -1,0 +1,99 @@
+services:
+  # ==========================================
+  # 1. Base de Datos Relacional: PostgreSQL 16
+  # ==========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketplace-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres123}
+      POSTGRES_DB: ${DATABASE_NAME:-marketplace_db}
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-marketplace_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # 2. Caché y Concurrencia: Redis 7
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: marketplace-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # 3. Motor de Búsqueda: Meilisearch
+  # ==========================================
+  meilisearch:
+    image: getmeili/meilisearch:v1.9
+    container_name: marketplace-search
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${SEARCH_MASTER_KEY:-MasterSearchKey2026!}
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_ENV: "development"
+    ports:
+      - "${SEARCH_PORT:-7700}:7700"
+    volumes:
+      - meilidata:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ==========================================
+  # 4. Backend API: NestJS 10
+  # ==========================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: marketplace-backend-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PREFIX: api/v1
+      DATABASE_URL: postgresql://${DATABASE_USER:-postgres}:${DATABASE_PASSWORD:-postgres123}@postgres:5432/${DATABASE_NAME:-marketplace_db}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      JWT_SECRET: ${JWT_SECRET:-super-secret-production-jwt-key-2026}
+      JWT_EXPIRES_IN: 900s
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-super-refresh-production-jwt-key-2026}
+      JWT_REFRESH_EXPIRES_IN: 7d
+      RESERVATION_TTL_MINUTES: 15
+      PLATFORM_COMMISSION_DEFAULT: 10.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local
+  meilidata:
+    driver: local
