@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ApiError, apiRequest } from '@/lib/api';
-import { addLocalProductToCart, externalLink, externalPlatform, StoreProduct } from '@/lib/storefront';
+import { addLocalProductToCart, externalLink, externalPlatform, fetchDemoProduct, StoreProduct } from '@/lib/storefront';
 
 export function ProductDetail() {
   const params = useParams<{ slug: string }>();
@@ -19,7 +19,14 @@ export function ProductDetail() {
     let active = true;
     apiRequest<StoreProduct>(`/products/${encodeURIComponent(slug)}`)
       .then((data) => { if (active) setProduct(data); })
-      .catch((requestError) => { if (active) setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cargar este producto.'); })
+      .catch(async (requestError) => {
+        if (!active) return;
+        if (/^demo-\d+$/.test(slug)) {
+          try { setProduct(await fetchDemoProduct(slug.slice(5))); return; }
+          catch { /* Show the original product/API error below. */ }
+        }
+        setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cargar este producto.');
+      })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [slug]);
@@ -55,11 +62,11 @@ export function ProductDetail() {
         {affiliateUrl && <span className="product-source-badge">Vendido en {platform}</span>}
       </div>
       <div className="detail-copy">
-        <span className="section-kicker">{product.marca?.nombre || product.tienda?.nombre || 'SELECCIÓN DOOMERPLACE'}</span>
+        <span className="section-kicker">{product.isDemo ? 'PRODUCTO DE DEMOSTRACIÓN' : product.marca?.nombre || product.tienda?.nombre || 'SELECCIÓN DOOMERPLACE'}</span>
         <h1>{product.nombre}</h1>
         <strong className="detail-price">{price === null ? 'Consulta el precio' : money.format(price)}</strong>
         <p className="detail-description">{product.descripcionLarga || product.descripcionCorta || 'Un hallazgo elegido para ti.'}</p>
-        {affiliateUrl ? <><div className="external-note"><span>↗</span><p>La compra y el envío se realizan directamente en {platform}. El precio y la disponibilidad pueden cambiar en esa tienda.</p></div><a className="external-product-button detail-cta" href={affiliateUrl.href} target="_blank" rel="sponsored noopener noreferrer">Ver en {platform} <span>↗</span></a></> : <><p className={`detail-stock ${stock !== undefined && stock < 1 ? 'out' : ''}`}>{stock !== undefined ? stock > 0 ? `${stock} disponibles` : 'Agotado' : 'Disponible en tienda'}</p><button className="local-cart-button detail-cta" disabled={busy || (stock !== undefined && stock < 1)} onClick={() => void addToCart()}>{busy ? 'Agregando…' : stock !== undefined && stock < 1 ? 'Sin stock' : 'Agregar al carrito'}</button></>}
+        {product.isDemo ? <div className="external-note"><span>i</span><p>Este artículo proviene de una API pública de demostración. No pertenece al inventario de DoomerPlace y no está disponible para compra.</p></div> : affiliateUrl ? <><div className="external-note"><span>↗</span><p>La compra y el envío se realizan directamente en {platform}. El precio y la disponibilidad pueden cambiar en esa tienda.</p></div><a className="external-product-button detail-cta" href={affiliateUrl.href} target="_blank" rel="sponsored noopener noreferrer">Ver en {platform} <span>↗</span></a></> : <><p className={`detail-stock ${stock !== undefined && stock < 1 ? 'out' : ''}`}>{stock !== undefined ? stock > 0 ? `${stock} disponibles` : 'Agotado' : 'Disponible en tienda'}</p><button className="local-cart-button detail-cta" disabled={busy || (stock !== undefined && stock < 1)} onClick={() => void addToCart()}>{busy ? 'Agregando…' : stock !== undefined && stock < 1 ? 'Sin stock' : 'Agregar al carrito'}</button></>}
         {message && <p className="detail-feedback" role="status" aria-live="polite">{message}</p>}
         <div className="detail-meta"><span>Vendido por</span><strong>{product.tienda?.nombre || platform}</strong></div>
       </div>

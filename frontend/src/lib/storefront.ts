@@ -15,7 +15,43 @@ export type StoreProduct = {
   tienda?: { nombre: string };
   categoria?: { nombre: string };
   marca?: { nombre: string } | null;
+  isDemo?: boolean;
 };
+
+type DummyProduct = { id: number; title: string; description: string; category: string; price: number; brand?: string; thumbnail?: string; images?: string[] };
+
+function mapDemoProduct(item: DummyProduct): StoreProduct {
+  return {
+    id: `demo-${item.id}`,
+    slug: `demo-${item.id}`,
+    nombre: item.title,
+    descripcionCorta: item.description,
+    descripcionLarga: item.description,
+    imagenes: [{ url: item.thumbnail || item.images?.[0] || '', altText: item.title }].filter((image) => !!image.url),
+    variantes: [{ id: '', precio: item.price, inventario: { stockDisponible: 0 } }],
+    tienda: { nombre: 'Catálogo de demostración' },
+    categoria: { nombre: item.category },
+    marca: item.brand ? { nombre: item.brand } : null,
+    isDemo: true,
+  };
+}
+
+export async function fetchDemoProducts(search = ''): Promise<StoreProduct[]> {
+  const query = search.trim();
+  const endpoint = query
+    ? `https://dummyjson.com/products/search?q=${encodeURIComponent(query)}&limit=8`
+    : 'https://dummyjson.com/products?limit=8';
+  const response = await fetch(endpoint, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error(`La API pública respondió ${response.status}.`);
+  const data = await response.json() as { products?: DummyProduct[] };
+  return (data.products || []).map(mapDemoProduct);
+}
+
+export async function fetchDemoProduct(id: string): Promise<StoreProduct> {
+  const response = await fetch(`https://dummyjson.com/products/${encodeURIComponent(id)}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error(`El producto de demostración respondió ${response.status}.`);
+  return mapDemoProduct(await response.json() as DummyProduct);
+}
 
 export function externalLink(product: StoreProduct) {
   const raw = product.enlaceAfiliado || product.externalImports?.[0]?.originalUrl || product.amazonImport?.affiliateUrl;

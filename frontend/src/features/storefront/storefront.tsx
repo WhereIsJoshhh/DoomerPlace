@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { API_BASE_URL, ApiError, ApiUser, apiRequest, clearSession } from '@/lib/api';
-import { addLocalProductToCart, externalLink, externalPlatform, StoreProduct } from '@/lib/storefront';
+import { addLocalProductToCart, externalLink, externalPlatform, fetchDemoProducts, StoreProduct } from '@/lib/storefront';
 
 type Category = { id: string; nombre: string; icono?: string | null };
 type Product = StoreProduct;
@@ -21,6 +21,7 @@ export function Storefront() {
   const [categoryId, setCategoryId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [catalogSource, setCatalogSource] = useState<'marketplace' | 'demo'>('marketplace');
   const [cartMessage, setCartMessage] = useState('');
   const [addingProduct, setAddingProduct] = useState('');
 
@@ -40,13 +41,31 @@ export function Storefront() {
     if (search) params.set('search', search);
     if (categoryId) params.set('categoriaId', categoryId);
 
-    apiRequest<ProductList>(`/products?${params.toString()}`)
-      .then((result) => { if (active) setProducts(result.items || []); })
-      .catch((requestError) => {
+    async function loadCatalog() {
+      let apiError: unknown;
+      try {
+        const result = await apiRequest<ProductList>(`/products?${params.toString()}`);
+        if (!active) return;
+        if (result.items?.length) {
+          setProducts(result.items);
+          setCatalogSource('marketplace');
+          return;
+        }
+      } catch (requestError) { apiError = requestError; }
+
+      try {
+        const demoProducts = await fetchDemoProducts(search);
+        if (!active) return;
+        setProducts(demoProducts);
+        setCatalogSource('demo');
+      } catch {
         if (!active) return;
         setProducts([]);
-        setError(requestError instanceof ApiError ? requestError.message : 'No pudimos cargar el catálogo.');
-      })
+        setError(apiError instanceof ApiError ? apiError.message : 'No pudimos cargar el catálogo.');
+      }
+    }
+
+    void loadCatalog()
       .finally(() => { if (active) setLoading(false); });
 
     return () => { active = false; };
@@ -123,7 +142,8 @@ export function Storefront() {
       </section>
 
       <section className="product-section" id="productos">
-        <div className="section-heading"><div><span className="section-kicker">SELECCIÓN DOOMERPLACE</span><h2>{search ? `Resultados para “${search}”` : categoryId ? 'Explora esta categoría' : 'Encuentra tu próximo favorito'}</h2></div><span className="product-count">{loading ? 'Cargando…' : `${products.length} ${products.length === 1 ? 'producto' : 'productos'}`}</span></div>
+        <div className="section-heading"><div><span className="section-kicker">{catalogSource === 'demo' ? 'CATÁLOGO PÚBLICO DE DEMOSTRACIÓN' : 'SELECCIÓN DOOMERPLACE'}</span><h2>{search ? `Resultados para “${search}”` : categoryId ? 'Explora esta categoría' : 'Encuentra tu próximo favorito'}</h2></div><span className="product-count">{loading ? 'Cargando…' : `${products.length} ${products.length === 1 ? 'producto' : 'productos'}`}</span></div>
+        {catalogSource === 'demo' && !loading && <p className="demo-catalog-notice">Mostrando productos de ejemplo de una API pública. No son inventario de DoomerPlace y no se pueden comprar aquí.</p>}
         {error ? <div className="catalog-message"><span>!</span><p>{error}</p></div> : loading ? <div className="product-grid">{Array.from({ length: 4 }, (_, index) => <div className="product-skeleton" key={index}><div /><span /><span /></div>)}</div> : products.length ? (
           <div className="product-grid">
             {products.map((product, index) => {
@@ -136,10 +156,10 @@ export function Storefront() {
               return <article className="product-card" key={product.id}>
                 <div className={`product-image tone-${index % 4}`}>
                   {image ? <img src={image} alt={product.imagenes?.[0]?.altText || product.nombre} /> : <span className="product-placeholder">{product.nombre.slice(0, 1).toUpperCase()}</span>}
-                  {affiliateUrl ? <span className="product-source-badge">Vendido en {platform}</span> : <span className="product-badge">{product.categoria?.nombre || 'Selección'}</span>}
+                  {product.isDemo ? <span className="product-source-badge">Producto de muestra</span> : affiliateUrl ? <span className="product-source-badge">Vendido en {platform}</span> : <span className="product-badge">{product.categoria?.nombre || 'Selección'}</span>}
                   <span className="favorite-button" aria-hidden="true">♡</span>
                 </div>
-                <div className="product-info"><span className="product-store">{product.tienda?.nombre || 'Tienda independiente'}</span><Link className="product-title-link" href={`/products/${encodeURIComponent(product.slug)}`}><h3>{product.nombre}</h3></Link><p>{product.descripcionCorta || 'Una pieza especial seleccionada para ti.'}</p><div className="product-bottom"><strong>{price === null ? 'Ver precio' : money.format(price)}</strong><span>{affiliateUrl ? 'Compra externa ↗' : outOfStock ? 'Agotado' : 'Disponible ↗'}</span></div><div className="product-actions">{affiliateUrl ? <a className="external-product-button" href={affiliateUrl.href} target="_blank" rel="sponsored noopener noreferrer">Ver en {platform} <span>↗</span></a> : <button className="local-cart-button" disabled={addingProduct === product.id || !!outOfStock} onClick={() => void addToCart(product)}>{addingProduct === product.id ? 'Agregando…' : outOfStock ? 'Sin stock' : 'Agregar al carrito'}</button>}<Link className="product-detail-link" href={`/products/${encodeURIComponent(product.slug)}`}>Detalles</Link></div></div>
+                <div className="product-info"><span className="product-store">{product.tienda?.nombre || 'Tienda independiente'}</span><Link className="product-title-link" href={`/products/${encodeURIComponent(product.slug)}`}><h3>{product.nombre}</h3></Link><p>{product.descripcionCorta || 'Una pieza especial seleccionada para ti.'}</p><div className="product-bottom"><strong>{price === null ? 'Ver precio' : money.format(price)}</strong><span>{product.isDemo ? 'Solo demostración' : affiliateUrl ? 'Compra externa ↗' : outOfStock ? 'Agotado' : 'Disponible ↗'}</span></div><div className="product-actions">{product.isDemo ? <button className="local-cart-button" disabled>Producto de muestra</button> : affiliateUrl ? <a className="external-product-button" href={affiliateUrl.href} target="_blank" rel="sponsored noopener noreferrer">Ver en {platform} <span>↗</span></a> : <button className="local-cart-button" disabled={addingProduct === product.id || !!outOfStock} onClick={() => void addToCart(product)}>{addingProduct === product.id ? 'Agregando…' : outOfStock ? 'Sin stock' : 'Agregar al carrito'}</button>}<Link className="product-detail-link" href={`/products/${encodeURIComponent(product.slug)}`}>Detalles</Link></div></div>
               </article>;
             })}
           </div>
