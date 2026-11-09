@@ -39,3 +39,6 @@ coverage/
 # Prisma generated and SQLite test DBs
 *.db
 *.db-journal
+
+.vercel
+.env*

@@ -21,7 +21,7 @@ export function ProductDetail() {
       .then((data) => { if (active) setProduct(data); })
       .catch(async (requestError) => {
         if (!active) return;
-        if (/^demo-\d+$/.test(slug)) {
+        if (/^demo-(?:\d+|x-\d{3})$/.test(slug)) {
           try { setProduct(await fetchDemoProduct(slug.slice(5))); return; }
           catch { /* Show the original product/API error below. */ }
         }
