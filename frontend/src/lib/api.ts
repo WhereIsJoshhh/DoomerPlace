@@ -1,4 +1,4 @@
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api/v1').replace(/\/$/, '');
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || (process.env.NODE_ENV === 'production' ? '/api/v1' : 'http://localhost:3000/api/v1')).replace(/\/$/, '');
 
 export type ApiUser = {
   id: string;

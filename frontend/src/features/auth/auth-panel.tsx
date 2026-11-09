@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ApiError, authApi, saveSession } from '@/lib/api';
+import { API_BASE_URL, ApiError, authApi, saveSession } from '@/lib/api';
 
 type Mode = 'login' | 'register';
 
@@ -103,7 +103,7 @@ export function AuthPanel() {
               <p className="terms">Al continuar, aceptas nuestros <a href="#terminos">Términos de servicio</a> y <a href="#privacidad">Política de privacidad</a>.</p>
           </>
         </div>
-        <footer className="panel-footer"><span>© 2026 DoomerPlace</span><a href="http://localhost:3000/api/v1/docs" target="_blank" rel="noreferrer">API status <span className="online-dot" /></a></footer>
+        <footer className="panel-footer"><span>© 2026 DoomerPlace</span><a href={`${API_BASE_URL}/docs`} target="_blank" rel="noreferrer">API status <span className="online-dot" /></a></footer>
       </section>
     </main>
   );

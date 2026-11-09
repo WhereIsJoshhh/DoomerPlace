@@ -114,6 +114,19 @@ Rutas protegidas para administradores:
 - `POST /api/v1/integrations/amazon/sync-price-stock` sincroniza manualmente. `AMAZON_SYNC_INTERVAL_HOURS=6` habilita la misma tarea programada.
 
 La disponibilidad y el precio se guardan como datos externos; el inventario propio inicia en cero para evitar ofrecer como stock local una unidad que despacha Amazon. La compra externa requiere que la interfaz abra el enlace afiliado en vez de añadir el producto al checkout local.
+
+### Adapters de catálogo externo (Amazon y Mercari)
+
+El API unificado está en `/api/v1/integrations` y requiere JWT con rol `ADMIN` o `SUPER_ADMIN`:
+
+- `POST /import`: `{ "provider": "AMAZON" | "MERCARI", "externalId": "ASIN/ID/URL", "tiendaDestinoId": "opcional" }`.
+- `POST /batch-import`: `{ "provider": "AMAZON" | "MERCARI", "items": ["ID o URL", "..."], "tiendaDestinoId": "opcional" }` (máximo 50; reporta errores por elemento).
+- `POST /sync`: `{ "provider": "AMAZON", "externalIds": ["..."] }`; ambos campos opcionales para sincronizar todos los productos importados.
+- `GET /providers/status`: devuelve configuración, estado de conexión sin hacer llamadas de prueba y límite aplicado localmente.
+
+Amazon usa Creators API mediante el `AmazonCreatorsClient` ya configurado. Mercari usa un proxy autorizado cuya interfaz debe exponer `GET /items/{id}` y `POST /items/sync` (JSON `{ "externalIds": [...] }` con respuesta `{ "items": [...] }`). Configura `MERCARI_CATALOG_PROXY_URL`, y opcionalmente su token y rutas. Cada producto externo conserva URL original, precio/disponibilidad externa, condición y vendedor, además de mapear atributos. El inventario local queda en cero porque estas plataformas externas despachan sus propias ventas.
+
+Tras actualizar el proyecto, ejecuta `npm run prisma:migrate` y `npm run prisma:generate`. Para sincronización automática en un único proceso, establece `EXTERNAL_CATALOG_SYNC_INTERVAL_HOURS` a un valor mayor que cero.
 - **Testing:** Jest con mocks modulares (103 pruebas pasando)
 
 ---

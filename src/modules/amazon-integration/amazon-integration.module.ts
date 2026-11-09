@@ -6,5 +6,6 @@ import { AmazonIntegrationService } from './amazon-integration.service';
 @Module({
   controllers: [AmazonIntegrationController],
   providers: [AmazonCreatorsClient, AmazonIntegrationService],
+  exports: [AmazonCreatorsClient],
 })
 export class AmazonIntegrationModule {}

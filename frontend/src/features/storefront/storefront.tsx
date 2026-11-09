@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ApiError, ApiUser, apiRequest, clearSession } from '@/lib/api';
+import { API_BASE_URL, ApiError, ApiUser, apiRequest, clearSession } from '@/lib/api';
 
 type Category = { id: string; nombre: string; icono?: string | null };
 type Product = {
@@ -136,7 +136,7 @@ export function Storefront() {
       </section>
 
       <section className="maker-banner" id="sobre"><div className="maker-symbol">dp</div><div><span className="section-kicker">BUENO PARA QUIEN COMPRA. BUENO PARA QUIEN CREA.</span><h2>Las mejores cosas tienen<br />una historia detrás.</h2></div><p>Apoyamos tiendas independientes y a las personas que hacen del comercio algo más humano.</p></section>
-      <footer className="store-footer"><Link className="store-brand" href="/">doomerplace<span className="footer-dot">.</span></Link><span>Descubre con intención.</span><a href="http://localhost:3000/api/v1/health" target="_blank" rel="noreferrer">Estado de la plataforma <span className="online-dot" /></a></footer>
+      <footer className="store-footer"><Link className="store-brand" href="/">doomerplace<span className="footer-dot">.</span></Link><span>Descubre con intención.</span><a href={`${API_BASE_URL}/health`} target="_blank" rel="noreferrer">Estado de la plataforma <span className="online-dot" /></a></footer>
     </main>
   );
 }

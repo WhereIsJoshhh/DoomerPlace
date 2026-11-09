@@ -24,6 +24,7 @@ import { MessagingModule } from './modules/messaging/messaging.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { HealthModule } from './core/health/health.module';
 import { AmazonIntegrationModule } from './modules/amazon-integration/amazon-integration.module';
+import { ExternalCatalogModule } from './modules/external-catalog/external-catalog.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { AmazonIntegrationModule } from './modules/amazon-integration/amazon-int
     MessagingModule,
     AuditModule,
     AmazonIntegrationModule,
+    ExternalCatalogModule,
   ],
   providers: [
     {
