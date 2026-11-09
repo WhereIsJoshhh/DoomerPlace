@@ -434,11 +434,31 @@ model Producto {
   inventario Inventario?
   resenas    ResenaProducto[]
   preguntas  PreguntaProducto[]
+    amazonImport AmazonProductImport?
 
   @@index([tiendaId])
   @@index([categoriaId])
   @@index([estado])
   @@map("productos")
+}
+
+model AmazonProductImport {
+  id              String   @id @default(uuid())
+  asin            String   @unique
+  productoId      String   @unique
+  affiliateUrl    String
+  available       Boolean  @default(false)
+  externalPrice   Decimal? @db.Decimal(12, 2)
+  currency        String?
+  lastSyncedAt    DateTime?
+  lastSyncError   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([lastSyncedAt])
+  @@map("amazon_product_imports")
 }
 
 model ProductoImagen {

@@ -102,6 +102,18 @@ flowchart TD
 - **Motor de Búsqueda:** Meilisearch v1.9 / Typesense
 - **Contenedores:** Docker & Docker Compose multi-etapa
 - **Documentación API:** Swagger / OpenAPI 3.0 en `/api/v1/docs`
+
+### Integración de catálogo Amazon
+
+El backend usa Amazon Creators API (sucesora de PA-API 5.0). Completa en `.env` las credenciales `AMAZON_CREATORS_CLIENT_ID`, `AMAZON_CREATORS_CLIENT_SECRET`, `AMAZON_PARTNER_TAG`, además de `AMAZON_INTEGRATION_STORE_ID` y `AMAZON_DEFAULT_CATEGORY_ID` con IDs existentes. Para otra región, configura el marketplace y endpoint OAuth2 que correspondan. Ejecuta `npm run prisma:migrate` y `npm run prisma:generate` después de actualizar el código.
+
+Rutas protegidas para administradores:
+
+- `POST /api/v1/integrations/amazon/import-asin` con `{ "asin": "B09B2SBHQK" }` o `{ "asins": ["B09B2SBHQK"] }` (hasta 10).
+- `POST /api/v1/integrations/amazon/search` con `{ "keywords": "auriculares" }`.
+- `POST /api/v1/integrations/amazon/sync-price-stock` sincroniza manualmente. `AMAZON_SYNC_INTERVAL_HOURS=6` habilita la misma tarea programada.
+
+La disponibilidad y el precio se guardan como datos externos; el inventario propio inicia en cero para evitar ofrecer como stock local una unidad que despacha Amazon. La compra externa requiere que la interfaz abra el enlace afiliado en vez de añadir el producto al checkout local.
 - **Testing:** Jest con mocks modulares (103 pruebas pasando)
 
 ---

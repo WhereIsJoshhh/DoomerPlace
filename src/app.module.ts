@@ -23,6 +23,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { HealthModule } from './core/health/health.module';
+import { AmazonIntegrationModule } from './modules/amazon-integration/amazon-integration.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { HealthModule } from './core/health/health.module';
     ReviewsModule,
     MessagingModule,
     AuditModule,
+    AmazonIntegrationModule,
   ],
   providers: [
     {
