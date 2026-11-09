@@ -248,6 +248,8 @@ export class ProductsService {
             valorAtributo: { select: { id: true, valor: true } },
           },
         },
+        externalImports: { select: { provider: true, originalUrl: true }, take: 1 },
+        amazonImport: { select: { affiliateUrl: true } },
       },
     });
 
@@ -255,7 +257,12 @@ export class ProductsService {
       throw new NotFoundException('Producto no encontrado.');
     }
 
-    return producto;
+    const external = producto.externalImports[0];
+    return {
+      ...producto,
+      enlaceAfiliado: external?.originalUrl || producto.amazonImport?.affiliateUrl || null,
+      plataformaExterna: external?.provider || (producto.amazonImport ? 'AMAZON' : null),
+    };
   }
 
   /**
@@ -337,14 +344,24 @@ export class ProductsService {
               sku: true,
               precio: true,
               precioComparacion: true,
+              inventario: { select: { stockDisponible: true } },
             },
           },
+          externalImports: { select: { provider: true, originalUrl: true }, take: 1 },
+          amazonImport: { select: { affiliateUrl: true } },
         },
       }),
     ]);
 
     return {
-      items,
+      items: items.map((producto) => {
+        const external = producto.externalImports[0];
+        return {
+          ...producto,
+          enlaceAfiliado: external?.originalUrl || producto.amazonImport?.affiliateUrl || null,
+          plataformaExterna: external?.provider || (producto.amazonImport ? 'AMAZON' : null),
+        };
+      }),
       meta: {
         total,
         page,

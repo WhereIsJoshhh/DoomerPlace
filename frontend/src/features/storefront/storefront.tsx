@@ -3,17 +3,10 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { API_BASE_URL, ApiError, ApiUser, apiRequest, clearSession } from '@/lib/api';
+import { addLocalProductToCart, externalLink, externalPlatform, StoreProduct } from '@/lib/storefront';
 
 type Category = { id: string; nombre: string; icono?: string | null };
-type Product = {
-  id: string;
-  nombre: string;
-  descripcionCorta?: string | null;
-  imagenes?: Array<{ url: string; altText?: string | null }>;
-  variantes?: Array<{ precio: string | number }>;
-  tienda?: { nombre: string };
-  categoria?: { nombre: string };
-};
+type Product = StoreProduct;
 type ProductList = { items: Product[]; meta: { total: number } };
 
 const money = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'USD' });
@@ -28,6 +21,8 @@ export function Storefront() {
   const [categoryId, setCategoryId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cartMessage, setCartMessage] = useState('');
+  const [addingProduct, setAddingProduct] = useState('');
 
   useEffect(() => {
     const savedUser = window.localStorage.getItem('doomerplace.user');
@@ -66,6 +61,18 @@ export function Storefront() {
   function logout() {
     clearSession();
     setUser(null);
+  }
+
+  async function addToCart(product: Product) {
+    const variant = product.variantes?.[0];
+    setAddingProduct(product.id);
+    setCartMessage('');
+    try {
+      await addLocalProductToCart(product.id, variant?.id);
+      setCartMessage(`${product.nombre} se agregó al carrito.`);
+    } catch (requestError) {
+      setCartMessage(requestError instanceof ApiError ? requestError.message : 'No se pudo agregar el producto al carrito.');
+    } finally { setAddingProduct(''); }
   }
 
   return (
@@ -122,18 +129,24 @@ export function Storefront() {
             {products.map((product, index) => {
               const image = product.imagenes?.[0]?.url;
               const price = product.variantes?.length ? Math.min(...product.variantes.map((variant) => Number(variant.precio))) : null;
+              const affiliateUrl = externalLink(product);
+              const platform = externalPlatform(product, affiliateUrl);
+              const localStock = product.variantes?.some((variant) => variant.inventario?.stockDisponible !== undefined);
+              const outOfStock = localStock && !product.variantes?.some((variant) => (variant.inventario?.stockDisponible || 0) > 0);
               return <article className="product-card" key={product.id}>
                 <div className={`product-image tone-${index % 4}`}>
                   {image ? <img src={image} alt={product.imagenes?.[0]?.altText || product.nombre} /> : <span className="product-placeholder">{product.nombre.slice(0, 1).toUpperCase()}</span>}
-                  <span className="product-badge">{product.categoria?.nombre || 'Selección'}</span>
+                  {affiliateUrl ? <span className="product-source-badge">Vendido en {platform}</span> : <span className="product-badge">{product.categoria?.nombre || 'Selección'}</span>}
                   <span className="favorite-button" aria-hidden="true">♡</span>
                 </div>
-                <div className="product-info"><span className="product-store">{product.tienda?.nombre || 'Tienda independiente'}</span><h3>{product.nombre}</h3><p>{product.descripcionCorta || 'Una pieza especial seleccionada para ti.'}</p><div className="product-bottom"><strong>{price === null ? 'Ver precio' : money.format(price)}</strong><span>Disponible ↗</span></div></div>
+                <div className="product-info"><span className="product-store">{product.tienda?.nombre || 'Tienda independiente'}</span><Link className="product-title-link" href={`/products/${encodeURIComponent(product.slug)}`}><h3>{product.nombre}</h3></Link><p>{product.descripcionCorta || 'Una pieza especial seleccionada para ti.'}</p><div className="product-bottom"><strong>{price === null ? 'Ver precio' : money.format(price)}</strong><span>{affiliateUrl ? 'Compra externa ↗' : outOfStock ? 'Agotado' : 'Disponible ↗'}</span></div><div className="product-actions">{affiliateUrl ? <a className="external-product-button" href={affiliateUrl.href} target="_blank" rel="sponsored noopener noreferrer">Ver en {platform} <span>↗</span></a> : <button className="local-cart-button" disabled={addingProduct === product.id || !!outOfStock} onClick={() => void addToCart(product)}>{addingProduct === product.id ? 'Agregando…' : outOfStock ? 'Sin stock' : 'Agregar al carrito'}</button>}<Link className="product-detail-link" href={`/products/${encodeURIComponent(product.slug)}`}>Detalles</Link></div></div>
               </article>;
             })}
           </div>
         ) : <div className="empty-products"><div className="empty-spark">✳</div><span className="section-kicker">HAY ESPACIO PARA ALGO NUEVO</span><h3>{search ? 'No encontramos ese producto todavía.' : 'Pronto habrá nuevos hallazgos.'}</h3><p>{search ? 'Prueba otra búsqueda o explora todas las categorías.' : 'Las tiendas del marketplace están preparando sus primeras selecciones.'}</p>{search && <button className="text-link" onClick={() => { setQuery(''); setSearch(''); }}>Limpiar búsqueda <span>→</span></button>}</div>}
       </section>
+
+      <div className="store-toast" role="status" aria-live="polite">{cartMessage}</div>
 
       <section className="maker-banner" id="sobre"><div className="maker-symbol">dp</div><div><span className="section-kicker">BUENO PARA QUIEN COMPRA. BUENO PARA QUIEN CREA.</span><h2>Las mejores cosas tienen<br />una historia detrás.</h2></div><p>Apoyamos tiendas independientes y a las personas que hacen del comercio algo más humano.</p></section>
       <footer className="store-footer"><Link className="store-brand" href="/">doomerplace<span className="footer-dot">.</span></Link><span>Descubre con intención.</span><a href={`${API_BASE_URL}/health`} target="_blank" rel="noreferrer">Estado de la plataforma <span className="online-dot" /></a></footer>
