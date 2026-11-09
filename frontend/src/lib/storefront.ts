@@ -19,6 +19,17 @@ export type StoreProduct = {
 };
 
 type DummyProduct = { id: number; title: string; description: string; category: string; price: number; brand?: string; thumbnail?: string; images?: string[] };
+export type DemoCategory = { id: string; nombre: string; slug: string };
+export type DemoProductPage = { items: StoreProduct[]; total: number; hasMore: boolean };
+const categoryNames: Record<string, string> = {
+  beauty: 'Belleza', fragrances: 'Perfumes', furniture: 'Muebles', groceries: 'Despensa',
+  'home-decoration': 'Decoración del hogar', 'kitchen-accessories': 'Accesorios de cocina', laptops: 'Computadoras',
+  'mens-shirts': 'Camisas de hombre', 'mens-shoes': 'Calzado de hombre', 'mens-watches': 'Relojes de hombre',
+  'mobile-accessories': 'Accesorios para celular', motorcycle: 'Motocicletas', 'skin-care': 'Cuidado de la piel',
+  smartphones: 'Celulares', 'sports-accessories': 'Accesorios deportivos', sunglasses: 'Lentes de sol', tablets: 'Tabletas',
+  tops: 'Blusas y tops', vehicle: 'Vehículos', 'womens-bags': 'Bolsos', 'womens-dresses': 'Vestidos',
+  'womens-jewellery': 'Joyería', 'womens-shoes': 'Calzado de mujer', 'womens-watches': 'Relojes de mujer',
+};
 
 function mapDemoProduct(item: DummyProduct): StoreProduct {
   return {
@@ -36,15 +47,32 @@ function mapDemoProduct(item: DummyProduct): StoreProduct {
   };
 }
 
-export async function fetchDemoProducts(search = ''): Promise<StoreProduct[]> {
+export async function fetchDemoCategories(): Promise<DemoCategory[]> {
+  const response = await fetch('https://dummyjson.com/products/categories', { cache: 'force-cache', signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error(`La API pública respondió ${response.status}.`);
+  const categories = await response.json() as Array<{ slug: string; name: string }>;
+  return categories.map(({ slug, name }) => ({ id: `demo:${slug}`, slug, nombre: categoryNames[slug] || name }));
+}
+
+export async function fetchDemoProducts(search = '', category = '', skip = 0, limit = 24): Promise<DemoProductPage> {
   const query = search.trim();
-  const endpoint = query
-    ? `https://dummyjson.com/products/search?q=${encodeURIComponent(query)}&limit=8`
-    : 'https://dummyjson.com/products?limit=8';
+  const base = 'https://dummyjson.com/products';
+  const endpoint = category && query
+    ? `${base}?limit=0`
+    : category
+      ? `${base}/category/${encodeURIComponent(category)}?limit=${limit}&skip=${skip}`
+      : query
+        ? `${base}/search?q=${encodeURIComponent(query)}&limit=${limit}&skip=${skip}`
+        : `${base}?limit=${limit}&skip=${skip}`;
   const response = await fetch(endpoint, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
   if (!response.ok) throw new Error(`La API pública respondió ${response.status}.`);
-  const data = await response.json() as { products?: DummyProduct[] };
-  return (data.products || []).map(mapDemoProduct);
+  const data = await response.json() as { products?: DummyProduct[]; total?: number };
+  let records = data.products || [];
+  if (category && query) records = records.filter((item) => item.category === category && `${item.title} ${item.description} ${item.brand || ''}`.toLowerCase().includes(query.toLowerCase()));
+  const total = category && query ? records.length : data.total ?? records.length;
+  if (category && query) records = records.slice(skip, skip + limit);
+  const items = records.map(mapDemoProduct);
+  return { items, total, hasMore: skip + items.length < total };
 }
 
 export async function fetchDemoProduct(id: string): Promise<StoreProduct> {

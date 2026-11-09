@@ -3,9 +3,9 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { API_BASE_URL, ApiError, ApiUser, apiRequest, clearSession } from '@/lib/api';
-import { addLocalProductToCart, externalLink, externalPlatform, fetchDemoProducts, StoreProduct } from '@/lib/storefront';
+import { addLocalProductToCart, DemoCategory, externalLink, externalPlatform, fetchDemoCategories, fetchDemoProducts, StoreProduct } from '@/lib/storefront';
 
-type Category = { id: string; nombre: string; icono?: string | null };
+type Category = { id: string; nombre: string; slug?: string; icono?: string | null };
 type Product = StoreProduct;
 type ProductList = { items: Product[]; meta: { total: number } };
 
@@ -22,6 +22,9 @@ export function Storefront() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [catalogSource, setCatalogSource] = useState<'marketplace' | 'demo'>('marketplace');
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
   const [addingProduct, setAddingProduct] = useState('');
 
@@ -30,14 +33,17 @@ export function Storefront() {
     if (savedUser) {
       try { setUser(JSON.parse(savedUser) as ApiUser); } catch { clearSession(); }
     }
-    apiRequest<Category[]>('/categories').then(setCategories).catch(() => setCategories([]));
+    apiRequest<Category[]>('/categories')
+      .then(async (items) => { if (items.length) setCategories(items); else setCategories(await fetchDemoCategories()); })
+      .catch(() => { void fetchDemoCategories().then(setCategories).catch(() => setCategories([])); });
   }, []);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError('');
-    const params = new URLSearchParams({ page: '1', limit: '8' });
+    const pageSize = 24;
+    const params = new URLSearchParams({ page: '1', limit: String(pageSize) });
     if (search) params.set('search', search);
     if (categoryId) params.set('categoriaId', categoryId);
 
@@ -49,14 +55,24 @@ export function Storefront() {
         if (result.items?.length) {
           setProducts(result.items);
           setCatalogSource('marketplace');
+          setTotalProducts(result.meta?.total ?? result.items.length);
+          setHasMore(result.items.length < (result.meta?.total ?? result.items.length));
           return;
         }
       } catch (requestError) { apiError = requestError; }
 
       try {
-        const demoProducts = await fetchDemoProducts(search);
+        const publicCategories = await fetchDemoCategories().catch(() => [] as DemoCategory[]);
+        if (publicCategories.length) {
+          setCategories(publicCategories);
+          if (categoryId && !categoryId.startsWith('demo:')) setCategoryId('');
+        }
+        const selectedCategory = publicCategories.find((item) => item.id === categoryId)?.slug || (categoryId.startsWith('demo:') ? categoryId.slice(5) : '');
+        const demoProducts = await fetchDemoProducts(search, selectedCategory, 0, pageSize);
         if (!active) return;
-        setProducts(demoProducts);
+        setProducts(demoProducts.items);
+        setTotalProducts(demoProducts.total);
+        setHasMore(demoProducts.hasMore);
         setCatalogSource('demo');
       } catch {
         if (!active) return;
@@ -70,6 +86,30 @@ export function Storefront() {
 
     return () => { active = false; };
   }, [search, categoryId]);
+
+  async function loadMoreProducts() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      if (catalogSource === 'demo') {
+        const selectedCategory = categories.find((item) => item.id === categoryId)?.slug || (categoryId.startsWith('demo:') ? categoryId.slice(5) : '');
+        const next = await fetchDemoProducts(search, selectedCategory, products.length, 24);
+        setProducts((current) => [...current, ...next.items]);
+        setTotalProducts(next.total);
+        setHasMore(next.hasMore);
+      } else {
+        const params = new URLSearchParams({ page: String(Math.floor(products.length / 24) + 1), limit: '24' });
+        if (search) params.set('search', search);
+        if (categoryId) params.set('categoriaId', categoryId);
+        const next = await apiRequest<ProductList>(`/products?${params.toString()}`);
+        setProducts((current) => [...current, ...next.items]);
+        setTotalProducts(next.meta?.total ?? totalProducts);
+        setHasMore(next.items.length > 0 && products.length + next.items.length < (next.meta?.total ?? totalProducts));
+      }
+    } catch (requestError) {
+      setError(requestError instanceof ApiError ? requestError.message : 'No se pudieron cargar más productos.');
+    } finally { setLoadingMore(false); }
+  }
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -133,7 +173,7 @@ export function Storefront() {
       <section className="category-section" id="categorias">
         <div className="section-heading"><div><span className="section-kicker">POR DONDE EMPEZAR</span><h2>Un mundo de posibilidades</h2></div><button className="text-link" onClick={() => setCategoryId('')}>Ver todo <span>→</span></button></div>
         <div className="category-list">
-          {categories.length ? categories.slice(0, 6).map((category, index) => (
+          {categories.length ? categories.map((category, index) => (
             <button key={category.id} className={`category-pill ${categoryId === category.id ? 'active' : ''}`} onClick={() => setCategoryId(categoryId === category.id ? '' : category.id)}>
               <span className="category-icon">{category.icono || categoryIcons[index % categoryIcons.length]}</span>{category.nombre}<span className="category-arrow">↗</span>
             </button>
@@ -142,7 +182,7 @@ export function Storefront() {
       </section>
 
       <section className="product-section" id="productos">
-        <div className="section-heading"><div><span className="section-kicker">{catalogSource === 'demo' ? 'CATÁLOGO PÚBLICO DE DEMOSTRACIÓN' : 'SELECCIÓN DOOMERPLACE'}</span><h2>{search ? `Resultados para “${search}”` : categoryId ? 'Explora esta categoría' : 'Encuentra tu próximo favorito'}</h2></div><span className="product-count">{loading ? 'Cargando…' : `${products.length} ${products.length === 1 ? 'producto' : 'productos'}`}</span></div>
+        <div className="section-heading"><div><span className="section-kicker">{catalogSource === 'demo' ? 'CATÁLOGO PÚBLICO DE DEMOSTRACIÓN' : 'SELECCIÓN DOOMERPLACE'}</span><h2>{search ? `Resultados para “${search}”` : categoryId ? 'Explora esta categoría' : 'Encuentra tu próximo favorito'}</h2></div><span className="product-count">{loading ? 'Cargando…' : catalogSource === 'demo' ? `${products.length} de ${totalProducts} productos` : `${products.length} ${products.length === 1 ? 'producto' : 'productos'}`}</span></div>
         {catalogSource === 'demo' && !loading && <p className="demo-catalog-notice">Mostrando productos de ejemplo de una API pública. No son inventario de DoomerPlace y no se pueden comprar aquí.</p>}
         {error ? <div className="catalog-message"><span>!</span><p>{error}</p></div> : loading ? <div className="product-grid">{Array.from({ length: 4 }, (_, index) => <div className="product-skeleton" key={index}><div /><span /><span /></div>)}</div> : products.length ? (
           <div className="product-grid">
@@ -164,6 +204,7 @@ export function Storefront() {
             })}
           </div>
         ) : <div className="empty-products"><div className="empty-spark">✳</div><span className="section-kicker">HAY ESPACIO PARA ALGO NUEVO</span><h3>{search ? 'No encontramos ese producto todavía.' : 'Pronto habrá nuevos hallazgos.'}</h3><p>{search ? 'Prueba otra búsqueda o explora todas las categorías.' : 'Las tiendas del marketplace están preparando sus primeras selecciones.'}</p>{search && <button className="text-link" onClick={() => { setQuery(''); setSearch(''); }}>Limpiar búsqueda <span>→</span></button>}</div>}
+        {!loading && !error && hasMore && <button className="load-more-button" onClick={() => void loadMoreProducts()} disabled={loadingMore}>{loadingMore ? 'Cargando…' : 'Cargar más productos'} <span>↓</span></button>}
       </section>
 
       <div className="store-toast" role="status" aria-live="polite">{cartMessage}</div>
