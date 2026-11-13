@@ -1,8 +1,9 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { API_BASE_URL, ApiError, authApi, saveSession } from '@/lib/api';
+import { ApiError, authApi, saveSession } from '@/lib/api';
 
 type Mode = 'login' | 'register';
 
@@ -53,24 +54,24 @@ export function AuthPanel() {
   return (
     <main className="auth-shell">
       <section className="story-panel" aria-label="Bienvenida a DoomerPlace">
-        <a className="brand brand-light" href="#inicio" aria-label="DoomerPlace inicio">
+        <Link className="brand brand-light" href="/" aria-label="DoomerPlace, inicio">
           <span className="brand-mark">d<span>.</span></span><span>doomerplace</span>
-        </a>
+        </Link>
         <div className="story-copy">
           <span className="eyebrow"><span className="eyebrow-dot" /> EL MERCADO DE LO EXTRAORDINARIO</span>
           <h1>Encuentra eso<br />que no sabías<br /><em>que buscabas.</em></h1>
           <p>Descubre productos únicos de tiendas independientes. Todo lo que te gusta, en un solo lugar.</p>
           <div className="story-proof">
             <div className="avatar-stack" aria-hidden="true"><span>J</span><span>M</span><span>A</span><span>+</span></div>
-            <div><strong>Una comunidad que crece</strong><small>Personas comprando con intención</small></div>
+            <div><strong>Una comunidad que crece</strong><small>Personas descubriendo tiendas independientes</small></div>
           </div>
         </div>
-        <div className="story-bottom"><span>Compra local. Descubre más.</span><span>01 — 03</span></div>
+        <div className="story-bottom"><span>Catálogo de demostración. Descubre más.</span><span>01 — 03</span></div>
         <div className="decor decor-one" /><div className="decor decor-two" />
       </section>
 
       <section className="form-panel" id="inicio">
-        <div className="mobile-brand brand"><span className="brand-mark">d<span>.</span></span><span>doomerplace</span></div>
+        <Link className="mobile-brand brand" href="/" aria-label="DoomerPlace, inicio"><span className="brand-mark">d<span>.</span></span><span>doomerplace</span></Link>
         <div className="form-wrap">
           <>
               <div className="form-heading">
@@ -94,16 +95,16 @@ export function AuthPanel() {
                 <label className="field"><span>Correo electrónico</span><input name="email" type="email" autoComplete="email" placeholder="tu@correo.com" required /></label>
                 {mode === 'register' && <label className="field"><span>Teléfono <small>· opcional</small></span><input name="telefono" type="tel" autoComplete="tel" placeholder="+502 5555 1234" /></label>}
                 <label className="field"><span>Contraseña</span><input name="password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'Tu contraseña' : 'Al menos 8 caracteres'} minLength={mode === 'register' ? 8 : undefined} required /></label>
-                {mode === 'login' && <div className="form-meta"><span className="secure-note"><span aria-hidden="true">✳</span> Conexión segura</span><span className="forgot-note">¿Olvidaste tu contraseña?</span></div>}
+                {mode === 'login' && <div className="form-meta"><span className="secure-note"><span aria-hidden="true">✳</span> Conexión segura</span><Link className="forgot-note" href="/recuperar">¿Olvidaste tu contraseña?</Link></div>}
                 {error && <div className="error-message" role="alert">{error}</div>}
                 <button className="button button-primary full-width" type="submit" disabled={busy}>
                   {busy ? <><span className="spinner" />{mode === 'login' ? 'Ingresando…' : 'Creando cuenta…'}</> : <>{mode === 'login' ? 'Entrar a mi cuenta' : 'Crear mi cuenta'}<span aria-hidden="true">→</span></>}
                 </button>
               </form>
-              <p className="terms">Al continuar, aceptas nuestros <a href="#terminos">Términos de servicio</a> y <a href="#privacidad">Política de privacidad</a>.</p>
+              <p className="terms">Al continuar, aceptas nuestros <Link href="/terminos">Términos de servicio</Link> y <Link href="/privacidad">Política de privacidad</Link>.</p>
           </>
         </div>
-        <footer className="panel-footer"><span>© 2026 DoomerPlace</span><a href={`${API_BASE_URL}/docs`} target="_blank" rel="noreferrer">API status <span className="online-dot" /></a></footer>
+        <footer className="panel-footer"><span>© 2026 DoomerPlace</span><Link href="/contacto">Contacto</Link></footer>
       </section>
     </main>
   );

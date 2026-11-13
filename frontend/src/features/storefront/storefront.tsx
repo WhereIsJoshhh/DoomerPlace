@@ -2,18 +2,20 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { API_BASE_URL, ApiError, ApiUser, apiRequest, clearSession } from '@/lib/api';
+import { ApiError, apiRequest } from '@/lib/api';
 import { addLocalProductToCart, DemoCategory, externalLink, externalPlatform, fetchDemoCategories, fetchDemoProducts, StoreProduct } from '@/lib/storefront';
+import { loadFavorites, toggleFavorite } from '@/lib/favorites';
+import { SiteHeader } from '@/components/site-header';
+import { SiteFooter } from '@/components/site-footer';
 
 type Category = { id: string; nombre: string; slug?: string; icono?: string | null };
 type Product = StoreProduct;
 type ProductList = { items: Product[]; meta: { total: number } };
 
 const money = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'USD' });
-const categoryIcons = ['✦', '◈', '⌁', '◉', '↗', '✳'];
+const categoryIcons = ['✦', '◈', '⌁', '◉', '✳', '⬡'];
 
 export function Storefront() {
-  const [user, setUser] = useState<ApiUser | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState('');
@@ -27,11 +29,15 @@ export function Storefront() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
   const [addingProduct, setAddingProduct] = useState('');
+  const [favorites, setFavorites] = useState<string[]>([]);
 
   useEffect(() => {
-    const savedUser = window.localStorage.getItem('doomerplace.user');
-    if (savedUser) {
-      try { setUser(JSON.parse(savedUser) as ApiUser); } catch { clearSession(); }
+    setFavorites(loadFavorites());
+    // Búsqueda llegada desde el encabezado de otras páginas (/?buscar=…)
+    const initialSearch = new URLSearchParams(window.location.search).get('buscar');
+    if (initialSearch) {
+      setQuery(initialSearch);
+      setSearch(initialSearch.trim());
     }
     apiRequest<Category[]>('/categories')
       .then(async (items) => { if (items.length) setCategories(items); else setCategories(await fetchDemoCategories()); })
@@ -117,9 +123,8 @@ export function Storefront() {
     document.getElementById('productos')?.scrollIntoView({ behavior: 'smooth' });
   }
 
-  function logout() {
-    clearSession();
-    setUser(null);
+  function onToggleFavorite(product: Product) {
+    setFavorites(toggleFavorite(product.id));
   }
 
   async function addToCart(product: Product) {
@@ -136,25 +141,14 @@ export function Storefront() {
 
   return (
     <main className="storefront">
-      <div className="announcement"><span>✦</span> Un buen hallazgo cambia el día <span className="announcement-divider">·</span> Descubre tiendas independientes</div>
-      <header className="store-header">
-        <Link className="store-brand" href="/" aria-label="DoomerPlace, inicio"><span className="store-brand-mark">d<span>.</span></span>doomerplace</Link>
-        <nav className="store-nav" aria-label="Navegación principal">
-          <a className="current" href="#productos">Descubrir</a>
-          <a href="#categorias">Categorías</a>
-          <a href="#sobre">Nuestra idea</a>
-        </nav>
-        <div className="store-actions">
-          {user ? <><span className="store-user">Hola, {user.nombre}</span><button className="store-login" onClick={logout}>Cerrar sesión</button></> : <Link className="store-login" href="/login">Iniciar sesión</Link>}
-          {!user && <Link className="store-join" href="/login?mode=register">Crear cuenta <span>↗</span></Link>}
-        </div>
-      </header>
+      <div className="announcement"><span>✦</span> Catálogo de demostración <span className="announcement-divider">·</span> Los productos de muestra no están a la venta en DoomerPlace</div>
+      <SiteHeader />
 
       <section className="store-hero">
         <div className="hero-copy">
           <span className="hero-kicker"><span /> UN MARKETPLACE CON PERSONALIDAD</span>
           <h1>Menos de siempre.<br /><em>Más de lo tuyo.</em></h1>
-          <p>Encuentra marcas independientes, objetos especiales y tiendas con algo que contar.</p>
+          <p>Encuentra marcas independientes, objetos especiales y tiendas con algo que contar. Hoy DoomerPlace es un catálogo de demostración: explora y descubre, y cuando un producto se vende en una tienda externa, la tarjeta lo dice y te lleva a esa tienda.</p>
           <form className="store-search" onSubmit={submitSearch}>
             <span aria-hidden="true">⌕</span>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="¿Qué te gustaría encontrar?" aria-label="Buscar productos" />
@@ -171,11 +165,11 @@ export function Storefront() {
       </section>
 
       <section className="category-section" id="categorias">
-        <div className="section-heading"><div><span className="section-kicker">POR DONDE EMPEZAR</span><h2>Un mundo de posibilidades</h2></div><button className="text-link" onClick={() => setCategoryId('')}>Ver todo <span>→</span></button></div>
+        <div className="section-heading"><div><span className="section-kicker">POR DONDE EMPEZAR</span><h2>Un mundo de posibilidades</h2></div>{categoryId && <button className="text-link" onClick={() => setCategoryId('')}>Quitar filtro <span>→</span></button>}</div>
         <div className="category-list">
           {categories.length ? categories.map((category, index) => (
-            <button key={category.id} className={`category-pill ${categoryId === category.id ? 'active' : ''}`} onClick={() => setCategoryId(categoryId === category.id ? '' : category.id)}>
-              <span className="category-icon">{category.icono || categoryIcons[index % categoryIcons.length]}</span>{category.nombre}<span className="category-arrow">↗</span>
+            <button key={category.id} className={`category-pill ${categoryId === category.id ? 'active' : ''}`} aria-pressed={categoryId === category.id} onClick={() => setCategoryId(categoryId === category.id ? '' : category.id)}>
+              <span className="category-icon">{category.icono || categoryIcons[index % categoryIcons.length]}</span>{category.nombre}
             </button>
           )) : ['Tecnología', 'Moda y calzado', 'Hogar', 'Accesorios'].map((name, index) => <span key={name} className="category-pill category-static"><span className="category-icon">{categoryIcons[index]}</span>{name}</span>)}
         </div>
@@ -197,9 +191,9 @@ export function Storefront() {
                 <div className={`product-image tone-${index % 4}`}>
                   {image ? <img src={image} alt={product.imagenes?.[0]?.altText || product.nombre} /> : <span className="product-placeholder">{product.nombre.slice(0, 1).toUpperCase()}</span>}
                   {product.isDemo ? <span className="product-source-badge">Producto de muestra</span> : affiliateUrl ? <span className="product-source-badge">Vendido en {platform}</span> : <span className="product-badge">{product.categoria?.nombre || 'Selección'}</span>}
-                  <span className="favorite-button" aria-hidden="true">♡</span>
+                  <button type="button" className={`favorite-button ${favorites.includes(product.id) ? 'active' : ''}`} aria-pressed={favorites.includes(product.id)} aria-label={favorites.includes(product.id) ? `Quitar ${product.nombre} de favoritos` : `Marcar ${product.nombre} como favorito`} title={favorites.includes(product.id) ? 'Quitar de favoritos' : 'Marcar como favorito'} onClick={() => onToggleFavorite(product)}>{favorites.includes(product.id) ? '♥' : '♡'}</button>
                 </div>
-                <div className="product-info"><span className="product-store">{product.tienda?.nombre || 'Tienda independiente'}</span><Link className="product-title-link" href={`/products/${encodeURIComponent(product.slug)}`}><h3>{product.nombre}</h3></Link><p>{product.descripcionCorta || 'Una pieza especial seleccionada para ti.'}</p><div className="product-bottom"><strong>{price === null ? 'Ver precio' : money.format(price)}</strong><span>{product.isDemo ? 'Solo demostración' : affiliateUrl ? 'Compra externa ↗' : outOfStock ? 'Agotado' : 'Disponible ↗'}</span></div><div className="product-actions">{product.isDemo ? <button className="local-cart-button" disabled>Producto de muestra</button> : affiliateUrl ? <a className="external-product-button" href={affiliateUrl.href} target="_blank" rel="sponsored noopener noreferrer">Ver en {platform} <span>↗</span></a> : <button className="local-cart-button" disabled={addingProduct === product.id || !!outOfStock} onClick={() => void addToCart(product)}>{addingProduct === product.id ? 'Agregando…' : outOfStock ? 'Sin stock' : 'Agregar al carrito'}</button>}<Link className="product-detail-link" href={`/products/${encodeURIComponent(product.slug)}`}>Detalles</Link></div></div>
+                <div className="product-info"><span className="product-store">{product.tienda?.nombre || 'Tienda independiente'}</span><Link className="product-title-link" href={`/products/${encodeURIComponent(product.slug)}`}><h3>{product.nombre}</h3></Link><p>{product.descripcionCorta || 'Una pieza especial seleccionada para ti.'}</p><div className="product-bottom"><strong>{price === null ? 'Ver precio' : money.format(price)}</strong><span>{product.isDemo ? 'Solo demostración' : affiliateUrl ? 'Compra externa ↗' : outOfStock ? 'Agotado' : 'Disponible'}</span></div><div className="product-actions">{product.isDemo ? <span /> : affiliateUrl ? <a className="external-product-button" href={affiliateUrl.href} target="_blank" rel="sponsored noopener noreferrer">Ver en {platform} <span>↗</span></a> : <button className="local-cart-button" disabled={addingProduct === product.id || !!outOfStock} onClick={() => void addToCart(product)}>{addingProduct === product.id ? 'Agregando…' : outOfStock ? 'Sin stock' : 'Agregar al carrito'}</button>}<Link className="product-detail-link" href={`/products/${encodeURIComponent(product.slug)}`}>Detalles</Link></div></div>
               </article>;
             })}
           </div>
@@ -209,8 +203,19 @@ export function Storefront() {
 
       <div className="store-toast" role="status" aria-live="polite">{cartMessage}</div>
 
-      <section className="maker-banner" id="sobre"><div className="maker-symbol">dp</div><div><span className="section-kicker">BUENO PARA QUIEN COMPRA. BUENO PARA QUIEN CREA.</span><h2>Las mejores cosas tienen<br />una historia detrás.</h2></div><p>Apoyamos tiendas independientes y a las personas que hacen del comercio algo más humano.</p></section>
-      <footer className="store-footer"><Link className="store-brand" href="/">doomerplace<span className="footer-dot">.</span></Link><span>Descubre con intención.</span><a href={`${API_BASE_URL}/health`} target="_blank" rel="noreferrer">Estado de la plataforma <span className="online-dot" /></a></footer>
+      <section className="maker-banner" id="sobre">
+        <div className="maker-symbol">dp</div>
+        <div>
+          <span className="section-kicker">NUESTRA IDEA</span>
+          <h2>Las mejores cosas tienen<br />una historia detrás.</h2>
+        </div>
+        <div className="maker-copy">
+          <p><strong>Qué es DoomerPlace:</strong> un catálogo para descubrir tiendas independientes y productos con algo que contar, reunidos en un solo lugar.</p>
+          <p><strong>Cómo funciona hoy:</strong> estamos en etapa de demostración. Exploras el catálogo y marcas tus favoritos; los productos de muestra no se venden aquí, y cuando un producto pertenece a una tienda externa, su tarjeta lo indica y la compra se hace en esa tienda, con sus precios y condiciones.</p>
+          <p><strong>Contacto:</strong> ¿tienes una tienda, una duda o una sugerencia? Escríbenos desde la <Link href="/contacto">página de contacto</Link>.</p>
+        </div>
+      </section>
+      <SiteFooter />
     </main>
   );
 }

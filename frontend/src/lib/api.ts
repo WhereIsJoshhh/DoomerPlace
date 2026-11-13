@@ -83,6 +83,19 @@ export const authApi = {
   register: (payload: RegisterPayload) => apiRequest<AuthResponse>('/auth/register', {
     method: 'POST', body: JSON.stringify(payload),
   }),
+  forgotPassword: (email: string) => apiRequest<{ message: string }>('/auth/forgot-password', {
+    method: 'POST', body: JSON.stringify({ email }),
+  }),
+  resetPassword: (token: string, nuevaPassword: string) => apiRequest<{ message: string }>('/auth/reset-password', {
+    method: 'POST', body: JSON.stringify({ token, nuevaPassword }),
+  }),
+};
+
+export const supportApi = {
+  sendContactMessage: (payload: { nombre: string; email: string; asunto?: string; mensaje: string }) =>
+    apiRequest<{ id: string; message: string }>('/support/contact', {
+      method: 'POST', body: JSON.stringify(payload),
+    }),
 };
 
 export function saveSession(session: AuthResponse) {

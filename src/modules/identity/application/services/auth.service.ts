@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   ConflictException,
   UnauthorizedException,
   Logger,
@@ -7,10 +8,16 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
+import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '@core/database/prisma.service';
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
+import { ForgotPasswordDto } from '../dtos/forgot-password.dto';
+import { ResetPasswordDto } from '../dtos/reset-password.dto';
 import { EstadoUsuario } from '@prisma/client';
+
+const MENSAJE_RECUPERACION =
+  'Si existe una cuenta con ese correo, te enviamos un enlace para restablecer tu contraseña. Revisa tu bandeja de entrada.';
 
 export interface AuthTokens {
   accessToken: string;
@@ -184,6 +191,78 @@ export class AuthService {
   }
 
   /**
+   * Solicitud de recuperación de contraseña.
+   * La respuesta es siempre la misma, exista o no la cuenta, para no
+   * revelar qué correos están registrados. El token viaja en claro solo
+   * en el enlace enviado; en base de datos se guarda su hash SHA-256.
+   *
+   * PENDIENTE DE INFRAESTRUCTURA: el proyecto aún no tiene un proveedor
+   * de correo configurado. Mientras tanto el token se registra en el log
+   * del servidor solo en entornos que no sean producción.
+   */
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const email = dto.email.toLowerCase().trim();
+    const user = await this.prisma.usuario.findUnique({ where: { email } });
+
+    if (user && user.estado === EstadoUsuario.ACTIVO) {
+      const token = randomBytes(32).toString('hex');
+      const tokenHash = createHash('sha256').update(token).digest('hex');
+      await this.prisma.usuario.update({
+        where: { id: user.id },
+        data: {
+          tokenRestablecimientoHash: tokenHash,
+          tokenRestablecimientoExpira: new Date(Date.now() + 60 * 60 * 1000),
+        },
+      });
+
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.warn(
+          `[dev] Enlace de restablecimiento para ${email}: /restablecer?token=${token} (sin proveedor de correo configurado)`,
+        );
+      } else {
+        this.logger.warn(
+          `Restablecimiento solicitado para el usuario ${user.id}, pero no hay un proveedor de correo configurado para entregar el enlace.`,
+        );
+      }
+    }
+
+    return { message: MENSAJE_RECUPERACION };
+  }
+
+  /**
+   * Restablecer la contraseña con el token recibido.
+   */
+  async resetPassword(dto: ResetPasswordDto) {
+    const tokenHash = createHash('sha256').update(dto.token.trim()).digest('hex');
+    const user = await this.prisma.usuario.findFirst({
+      where: {
+        tokenRestablecimientoHash: tokenHash,
+        tokenRestablecimientoExpira: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException(
+        'El enlace de restablecimiento no es válido o ya venció. Solicita uno nuevo.',
+      );
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(dto.nuevaPassword, salt);
+
+    await this.prisma.usuario.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        tokenRestablecimientoHash: null,
+        tokenRestablecimientoExpira: null,
+      },
+    });
+
+    return { message: 'Tu contraseña se restableció correctamente. Ya puedes iniciar sesión.' };
+  }
+
+  /**
    * Validación para JwtStrategy
    */
   async validateUserFromJwt(userId: string) {
@@ -292,7 +371,7 @@ export class AuthService {
    * Sanitiza el usuario para remover campos sensibles (passwordHash)
    */
   private sanitizeUser(user: any) {
-    const { passwordHash, roles, ...rest } = user;
+    const { passwordHash, tokenRestablecimientoHash, tokenRestablecimientoExpira, roles, ...rest } = user;
     const rolesList = roles?.map((r: any) => r.rol.slug) || [];
     const permisosMap = new Map<string, { modulo: string; accion: string }>();
 

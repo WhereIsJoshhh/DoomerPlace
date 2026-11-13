@@ -73,6 +73,7 @@ async function bootstrap() {
     .addTag('Reseñas Verificadas y Calificaciones', 'Reseñas respaldadas por compras reales y calificación promedio de tiendas')
     .addTag('Comunicación, Mensajería y Preguntas', 'Preguntas públicas en productos y mensajería directa comprador-tienda')
     .addTag('Auditoría y Configuración Global del Sistema', 'Parámetros del marketplace y registros inmutables de auditoría')
+    .addTag('Contacto y Soporte', 'Formulario público de contacto y revisión de mensajes por administradores')
     .addTag('Salud y Disponibilidad', 'Health checks de base de datos y memoria')
     .build();
 

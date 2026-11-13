@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ApiError, apiRequest } from '@/lib/api';
 import { addLocalProductToCart, externalLink, externalPlatform, fetchDemoProduct, StoreProduct } from '@/lib/storefront';
+import { SiteHeader } from '@/components/site-header';
+import { SiteFooter } from '@/components/site-footer';
 
 export function ProductDetail() {
   const params = useParams<{ slug: string }>();
@@ -54,7 +56,8 @@ export function ProductDetail() {
   const money = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'USD' });
 
   return <main className="product-detail-shell">
-    <header className="detail-header"><Link className="store-brand" href="/"><span className="store-brand-mark">d<span>.</span></span>doomerplace</Link><Link className="detail-back" href="/">← Volver al catálogo</Link></header>
+    <SiteHeader showSearch />
+    <div className="detail-subnav"><Link className="detail-back" href="/">← Volver al catálogo</Link></div>
     <div className="detail-breadcrumb"><Link href="/">Inicio</Link><span>/</span><span>{product.categoria?.nombre || 'Catálogo'}</span><span>/</span><span>{product.nombre}</span></div>
     <section className="detail-layout">
       <div className="detail-gallery">
@@ -71,5 +74,6 @@ export function ProductDetail() {
         <div className="detail-meta"><span>Vendido por</span><strong>{product.tienda?.nombre || platform}</strong></div>
       </div>
     </section>
+    <SiteFooter />
   </main>;
 }

@@ -22,6 +22,7 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { SupportModule } from './modules/support/support.module';
 import { HealthModule } from './core/health/health.module';
 import { AmazonIntegrationModule } from './modules/amazon-integration/amazon-integration.module';
 import { ExternalCatalogModule } from './modules/external-catalog/external-catalog.module';
@@ -49,6 +50,7 @@ import { ExternalCatalogModule } from './modules/external-catalog/external-catal
     ReviewsModule,
     MessagingModule,
     AuditModule,
+    SupportModule,
     AmazonIntegrationModule,
     ExternalCatalogModule,
   ],

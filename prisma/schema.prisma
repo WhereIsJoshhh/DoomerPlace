@@ -20,6 +20,12 @@ enum EstadoUsuario {
   SUSPENDIDO
 }
 
+enum EstadoMensajeContacto {
+  NUEVO
+  LEIDO
+  RESPONDIDO
+}
+
 enum AccionPermiso {
   CREAR
   LEER
@@ -164,6 +170,8 @@ model Usuario {
   emailVerificado    Boolean       @default(false)
   telefonoVerificado Boolean       @default(false)
   estado             EstadoUsuario @default(ACTIVO)
+  tokenRestablecimientoHash   String?
+  tokenRestablecimientoExpira DateTime?
   ultimoAcceso       DateTime?
   fechaRegistro      DateTime      @default(now())
   fechaActualizacion DateTime      @updatedAt
@@ -1248,4 +1256,23 @@ model Auditoria {
   @@index([modulo])
   @@index([entidad, entidadId])
   @@map("auditorias")
+}
+
+// ==========================================
+// DOMINIO 15: CONTACTO Y SOPORTE PÚBLICO
+// ==========================================
+
+model MensajeContacto {
+  id                 String                @id @default(uuid())
+  nombre             String
+  email              String
+  asunto             String?
+  mensaje            String
+  estado             EstadoMensajeContacto @default(NUEVO)
+  fechaCreacion      DateTime              @default(now())
+  fechaActualizacion DateTime              @updatedAt
+
+  @@index([estado])
+  @@index([fechaCreacion])
+  @@map("mensajes_contacto")
 }

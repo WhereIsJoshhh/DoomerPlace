@@ -1,4 +1,5 @@
 import { apiRequest } from './api';
+import { matchesSearch } from './search';
 
 export type StoreProduct = {
   id: string;
@@ -97,13 +98,37 @@ export async function fetchDemoProducts(search = '', category = '', skip = 0, li
   const query = search.trim();
   const base = 'https://dummyjson.com/products';
   const isCuratedCategory = curatedDemoCategories.some((item) => item.slug === category);
-  const endpoint = isCuratedCategory ? '' : category && query
-    ? `${base}?limit=0`
-    : category
-      ? `${base}/category/${encodeURIComponent(category)}?limit=${limit}&skip=${skip}`
-      : query
-        ? `${base}/search?q=${encodeURIComponent(query)}&limit=${limit}&skip=${skip}`
-        : `${base}?limit=${limit}&skip=${skip}`;
+
+  // Con búsqueda activa se descarga el catálogo público completo y se
+  // filtra aquí, normalizando AMBOS lados (consulta y texto del producto):
+  // "máscara", "mascara" y "MASCARA" devuelven el mismo resultado.
+  // La búsqueda propia de DummyJSON no ignora tildes, por eso no se usa.
+  if (query) {
+    let all: DummyProduct[] = [];
+    try {
+      const response = await fetch(`${base}?limit=0`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error(`La API pública respondió ${response.status}.`);
+      const data = await response.json() as { products?: DummyProduct[] };
+      all = data.products || [];
+    } catch {
+      // Sin red, la colección local de muestra sigue disponible abajo.
+    }
+    const publicMatches = all.filter((item) =>
+      (!category || item.category === category) &&
+      matchesSearch(`${item.title} ${item.description} ${item.brand || ''} ${categoryNames[item.category] || item.category}`, query),
+    );
+    const curatedMatches = curatedDemoProducts.filter((item) =>
+      (!category || item.category === category) &&
+      matchesSearch(`${item.title} ${item.description} ${item.brand || ''} ${categoryNames[item.category] || item.category}`, query),
+    );
+    const combined = [...publicMatches.map(mapDemoProduct), ...curatedMatches.map(mapDemoProduct)];
+    const items = combined.slice(skip, skip + limit);
+    return { items, total: combined.length, hasMore: skip + items.length < combined.length };
+  }
+
+  const endpoint = isCuratedCategory ? '' : category
+    ? `${base}/category/${encodeURIComponent(category)}?limit=${limit}&skip=${skip}`
+    : `${base}?limit=${limit}&skip=${skip}`;
   let data: { products?: DummyProduct[]; total?: number } = { products: [], total: 0 };
   if (endpoint) {
     try {
@@ -114,16 +139,10 @@ export async function fetchDemoProducts(search = '', category = '', skip = 0, li
       // La colección local mantiene el catálogo de muestra disponible sin red.
     }
   }
-  let records = data.products || [];
-  if (category && query) records = records.filter((item) => item.category === category && `${item.title} ${item.description} ${item.brand || ''}`.toLowerCase().includes(query.toLowerCase()));
-  const publicTotal = category && query ? records.length : data.total ?? records.length;
-  if (category && query) records = records.slice(skip, skip + limit);
+  const records = data.products || [];
+  const publicTotal = data.total ?? records.length;
   const publicItems = records.map(mapDemoProduct);
-  const normalizedQuery = query.toLocaleLowerCase();
-  const curated = curatedDemoProducts.filter((item) =>
-    (!category || item.category === category) &&
-    (!normalizedQuery || `${item.title} ${item.description} ${item.brand || ''}`.toLocaleLowerCase().includes(normalizedQuery)),
-  );
+  const curated = curatedDemoProducts.filter((item) => !category || item.category === category);
   const curatedStart = Math.max(0, skip - publicTotal);
   const curatedPage = curated.slice(curatedStart, curatedStart + Math.max(0, limit - publicItems.length)).map(mapDemoProduct);
   const items = [...publicItems, ...curatedPage];

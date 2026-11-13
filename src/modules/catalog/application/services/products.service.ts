@@ -298,11 +298,21 @@ export class ProductsService {
     }
 
     if (search) {
-      where.OR = [
-        { nombre: { contains: search, mode: 'insensitive' } },
-        { descripcionCorta: { contains: search, mode: 'insensitive' } },
-        { skuBase: { contains: search, mode: 'insensitive' } },
-      ];
+      // Normalización de búsqueda: recorta espacios, ignora mayúsculas
+      // (mode: 'insensitive') y tildes. Como Prisma `contains` es literal,
+      // se busca tanto el término original como su versión sin tildes;
+      // así "máscara" también encuentra productos guardados como "Mascara".
+      // Limitación conocida: un producto guardado CON tilde no se encuentra
+      // con la consulta sin tilde hasta habilitar la extensión `unaccent`
+      // de PostgreSQL; el catálogo público (frontend) sí normaliza ambos lados.
+      const termino = search.trim();
+      const sinTildes = termino.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const terminos = sinTildes !== termino ? [termino, sinTildes] : [termino];
+      where.OR = terminos.flatMap((terminoBusqueda) => [
+        { nombre: { contains: terminoBusqueda, mode: 'insensitive' } },
+        { descripcionCorta: { contains: terminoBusqueda, mode: 'insensitive' } },
+        { skuBase: { contains: terminoBusqueda, mode: 'insensitive' } },
+      ]);
     }
 
     if (precioMin !== undefined || precioMax !== undefined) {
