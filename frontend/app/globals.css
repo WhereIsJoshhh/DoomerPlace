@@ -72,3 +72,25 @@
   .simple-main{padding:26px 0 44px}
 }
 @media(prefers-reduced-motion:reduce){.ania-heart{animation:none}}
+/* Carta para Analya: sobre cerrado que se abre al tocarlo y reproduce su canción */
+.carta-page{min-height:70vh;display:flex;align-items:center;justify-content:center;padding:34px 12px}
+.carta-escena{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.carta-sobre{position:relative;width:min(400px,88vw);aspect-ratio:1.55;background:linear-gradient(160deg,#f6e8d8,#edd9c0);border:1px solid #d9c3a5;border-radius:10px;cursor:pointer;box-shadow:0 18px 40px rgba(84,52,22,.18);overflow:visible;padding:0}
+.carta-sobre:focus-visible{outline:3px solid #c0452f;outline-offset:4px}
+.carta-papel{position:absolute;inset:7% 6%;background:#fffdf6;border:1px solid #e7dcc8;border-radius:6px;display:flex;align-items:flex-start;justify-content:center;padding-top:12px;transition:transform .9s ease .25s;z-index:1}
+.carta-papel-corazon{color:#c0452f;font-size:26px}
+.carta-solapa{position:absolute;left:0;right:0;top:0;height:52%;background:linear-gradient(180deg,#e8cdb0,#dfc09c);clip-path:polygon(0 0,100% 0,50% 100%);transform-origin:top center;transition:transform .7s ease;z-index:3;border-radius:10px 10px 0 0}
+.carta-sello{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);z-index:4;width:52px;height:52px;border-radius:50%;background:#c0452f;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 6px 16px rgba(120,40,25,.35);transition:opacity .3s ease}
+.carta-sobre--abriendo .carta-solapa{transform:rotateX(180deg);z-index:0}
+.carta-sobre--abriendo .carta-papel{transform:translateY(-46%)}
+.carta-sobre--abriendo .carta-sello{opacity:0}
+.carta-destinataria{font-family:Georgia,"Times New Roman",serif;font-size:26px;color:#54393f;margin:6px 0 0}
+.carta-instruccion{color:#7d8983;font-size:14px;margin:0}
+.carta-abierta{background:#fffdf6;border:1px solid #e7dcc8;border-radius:12px;box-shadow:0 18px 44px rgba(84,52,22,.16);max-width:620px;width:100%;text-align:center;padding:44px 28px 36px;display:flex;flex-direction:column;align-items:center;gap:16px;animation:carta-aparece .6s ease}
+.carta-abierta h1{font-size:clamp(26px,4.5vw,42px);letter-spacing:-1.4px;line-height:1.2;margin:0;max-width:560px}
+.carta-firma{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:20px;color:#54393f;margin:0}
+.carta-musica-boton{margin-top:8px;background:#fff;border:1px solid #d9c3a5;border-radius:999px;padding:9px 18px;font-size:14px;cursor:pointer;color:#54393f}
+.carta-musica-boton:hover{border-color:#c0452f;color:#c0452f}
+.carta-audio{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;border:0}
+@keyframes carta-aparece{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.carta-papel,.carta-solapa{transition:none}.carta-abierta{animation:none}}
